@@ -2281,7 +2281,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
             smrw.walkExpression { case e: Statement => propagateInner(e); case _ => }
           case smrwas: MemReadAsyncWrite =>
             smrwas.isVital |= vital
-            if (smrwas.mem != null) propagateInner(smrwas.mem) else SpinalWarning(s"MemReadAsyncWriteSync statement [$smrwas] has null mem reference.")
+            if (smrwas.mem != null) propagateInner(smrwas.mem) else SpinalWarning(s"MemReadAsyncWrite statement [$smrwas] has null mem reference.")
             smrwas.walkExpression { case e: Statement => propagateInner(e); case _ => }
           case smrs: MemReadSync =>
             smrs.isVital |= vital

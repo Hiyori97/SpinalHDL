@@ -1043,7 +1043,7 @@ class MemReadAsyncWrite() extends MemPortStatement with WidthProvider with Conte
   def getWordsCount = mem.wordCount*mem.width/getWidth
   def getAddressWidth = log2Up(getWordsCount)
 
-  override def opName = "Mem.readAsyncWriteSync(x)"
+  override def opName = "Mem.readAsyncWrite(x)"
 
   override def getTypeObject = TypeBits
 
