@@ -895,8 +895,7 @@ object SpiXdrMasterCtrl {
 
     val inputPhy = new Area{
       def sync[T <: Data](that : T, init : T = null) = Delay(that,2,init=init)
-      // val mod = sync(io.config.mod)
-      val mod = io.config.mod
+      val mod = sync(io.config.mod)
       // val readFill = sync(fsm.readFill, False)
       // val readDone = sync(fsm.readDone, False)
       val buffer = Reg(Bits(p.dataWidth - p.mods.map(_.bitrate).min bits))

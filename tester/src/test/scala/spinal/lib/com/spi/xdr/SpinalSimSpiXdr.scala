@@ -106,24 +106,9 @@ class SpinalSimSpiXdrMaster extends SpinalAnyFunSuite {
             dut.io.config.sclkToggle #= sclkToggle
 
             if (read) rspScoreboard.pushRef(readData)
-
-            for ((pin, tasks) <- mod.readMapping.groupBy(_.pin)) {
-              val initialDriveVal = tasks.filter { m =>
-                ((readData >> (m.target + mod.dataWidth - mod.bitrate)) & 1) != 0
-              }.map(1 << _.phase).fold(0)(_ | _)
-              dut.io.spi.data(pin).read #= initialDriveVal
-            }
-
             val spiThread = fork {
               for (beat <- 0 until mod.dataWidth / mod.bitrate) {
                 for (counter <- 0 until (if (mod.clkRate == 1) (sclkToggle + 1) * (if (mod.slowDdr) 1 else 2) else 1)) {
-
-                  if (!(beat == 0 && counter == 0)) {
-                    for ((pin, tasks) <- mod.readMapping.groupBy(_.pin)) {
-                      dut.io.spi.data(pin).read #= tasks.filter(m => ((readData >> m.target + mod.dataWidth - (beat + 1) * mod.bitrate) & 1) != 0).map(1 << _.phase).fold(0)(_ | _)
-                    }
-                  }
-
                   dut.clockDomain.waitSampling()
                   if (mod.clkRate != 1) {
                     assert(dut.io.spi.sclk.write.toInt == ((0 until dut.p.spi.ioRate).filter(i => i / (dut.p.spi.ioRate / mod.clkRate) % 2 == 1).map(1 << _).reduce(_ | _) ^ (if (cpol ^ cpha) (1 << dut.p.spi.ioRate) - 1 else 0)))
@@ -133,12 +118,19 @@ class SpinalSimSpiXdrMaster extends SpinalAnyFunSuite {
                     else
                       assert(dut.io.spi.sclk.write.toInt == (if (cpol ^ cpha ^ (counter > sclkToggle)) (1 << dut.p.spi.ioRate) - 1 else 0))
                   }
+                  val beatBuffer = beat
+                  fork {
+                    dut.clockDomain.waitSampling()
+                    for ((pin, tasks) <- mod.readMapping.groupBy(_.pin)) {
+                      dut.io.spi.data(pin).read #= tasks.filter(m => ((readData >> m.target + mod.dataWidth - (beatBuffer + 1) * mod.bitrate) & 1) != 0).map(1 << _.phase).fold(0)(_ | _)
+                    }
+                  }
                   for (m <- mod.writeMapping) {
                     assert(dut.io.spi.data(m.pin).writeEnable.toBoolean == write || mod.ouputHighWhenIdle)
                     if (!write && mod.ouputHighWhenIdle) {
                       assert(((dut.io.spi.data(m.pin).write.toInt >> m.phase) & 1) == 1)
                     } else {
-                      assert(((dut.io.spi.data(m.pin).write.toInt >> m.phase) & 1) == ((writeData >> m.source + mod.dataWidth - (beat + 1) * mod.bitrate) & 1))
+                      assert(((dut.io.spi.data(m.pin).write.toInt >> m.phase) & 1) == ((writeData >> m.source + mod.dataWidth - (beatBuffer + 1) * mod.bitrate) & 1))
                     }
                   }
                 }
