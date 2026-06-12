@@ -60,7 +60,9 @@ case class XdrPin(rate : Int) extends Bundle with IMasterSlave{
 
 case class SpiXdrParameter(dataWidth : Int,
                            ioRate : Int,
-                           ssWidth : Int)
+                           ssWidth : Int,
+                           inLatency : Int = 1,
+                           outLatency : Int = 1)
 
 case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlave{
   import p._
@@ -894,7 +896,12 @@ object SpiXdrMasterCtrl {
 
 
     val inputPhy = new Area{
-      def sync[T <: Data](that : T, init : T = null) = Delay(that,2,init=init)
+      def sync[T <: Data](that : T, init : T = null) : T = {
+        if( (p.spi.inLatency + p.spi.outLatency) > 0)
+          Delay(that,(p.spi.inLatency + p.spi.outLatency),init=init)
+        else
+          that
+      }
       val mod = sync(io.config.mod)
       val readFill = sync(fsm.readFill, False)
       val readDone = sync(fsm.readDone, False)
