@@ -896,8 +896,8 @@ object SpiXdrMasterCtrl {
     val inputPhy = new Area{
       def sync[T <: Data](that : T, init : T = null) = Delay(that,2,init=init)
       val mod = sync(io.config.mod)
-      // val readFill = sync(fsm.readFill, False)
-      // val readDone = sync(fsm.readDone, False)
+      val readFill = sync(fsm.readFill, False)
+      val readDone = sync(fsm.readDone, False)
       val buffer = Reg(Bits(p.dataWidth - p.mods.map(_.bitrate).min bits))
       val bufferNext = Bits(p.dataWidth bits).assignDontCare().allowOverride
       val widthSel = mod.muxListDc(p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate), log2Up(widthMax + 1) bits)))
@@ -926,12 +926,12 @@ object SpiXdrMasterCtrl {
         for ((width,widthId) <- widths.zipWithIndex) {
           is(widthId) {
             bufferNext := (buffer ## dataRead(0, width bits)).resized
-            when(fsm.readFill) { buffer := bufferNext.resized }
+            when(readFill) { buffer := bufferNext.resized }
           }
         }
       }
 
-      io.rsp.valid := fsm.readDone
+      io.rsp.valid := readDone
       io.rsp.data := bufferNext
 
       switch(mod){
