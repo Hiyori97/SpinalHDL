@@ -125,6 +125,19 @@ trait CtrlApi {
     ret
   }
 
+  /**
+   * Fork a flow from the current transaction.
+   *
+   * @param enabled Additional condition to allow the pipeline to enable/disable the forked flow
+   */
+  def forkFlow(enabled : Bool = True): Flow[NoData] = {
+    val ret = Flow(NoData())
+    val fired = RegInit(False) setCompositeName(ret, "fired")
+    ret.valid := isValid && !fired && enabled
+    fired setWhen(ret.fire) clearWhen(up.isMoving)
+    ret
+  }
+
   implicit def stageablePiped2[T <: Data](stageable: Payload[T]): T = this (stageable)
 
   class BundlePimper[T <: Bundle](pimped: T) {
