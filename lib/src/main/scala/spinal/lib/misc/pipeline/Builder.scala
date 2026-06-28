@@ -82,6 +82,9 @@ class StagePipeline() extends Area {
   def node(i : Int) = nodes.getOrElseUpdate(i, new Node().setCompositeName(this, s"node_${i.toString}"))
   class Area(i : Int) extends NodeMirror(node(i)) with spinal.core.Area
 
+  def first = node(nodes.keys.min)
+  def last = node(nodes.keys.max)
+
   def build(withoutCollapse : Boolean = false): Unit = {
     for(i <- nodes.keys.min until nodes.keys.max){
       val stage = StageLink(node(i), node(i+1)).setCompositeName(this, s"stage_${i+1}")
@@ -99,6 +102,9 @@ class StageCtrlPipeline() extends Area {
   def ctrl(i : Int) = ctrls.getOrElseUpdate(i, CtrlLink().setCompositeName(this, s"ctrl_${i.toString}"))
   class Ctrl(i : Int) extends CtrlLinkMirror(ctrl(i))
   class InsertArea extends NodeMirror(ctrl(0).up) with spinal.core.Area
+
+  def first = ctrl(ctrls.keys.min)
+  def last = ctrl(ctrls.keys.max)
 
   def build(): Unit = {
     for(i <- ctrls.keys.min until ctrls.keys.max){
