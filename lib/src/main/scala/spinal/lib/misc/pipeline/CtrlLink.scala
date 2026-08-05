@@ -41,13 +41,13 @@ trait CtrlApi {
   def insert[T <: Data](that: T): Payload[T] = down.insert(that)
 
   /** Allows to conditionally override a [[Payload]] value between `link.up` -> `link.down`.
-   * 
+   *
    * This can be used to fix data hazard in CPU pipelines for instance.
    */
   def bypass[T <: Data](that: Payload[T]): T =  bypass(that, defaultKey)
 
   /** Allows to conditionally override a ([[Payload]], subKey) value between `link.up` -> `link.down`.
-   * 
+   *
    * This can be used to fix data hazard in CPU pipelines for instance.
    */
   def bypass[T <: Data](that: Payload[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
@@ -76,9 +76,9 @@ trait CtrlApi {
 
   /** Ignore the downstream ready when `True` (set `up.ready`) */
   def ignoreReadyWhen(cond: Bool)(implicit loc: Location): Bool = requests.ignoresReady addRet nameFromLocation(CombInit(cond), "ignoreReadyRequest")
-  
+
   /** Cancel the current transaction from the pipeline when `True`.
-   * 
+   *
    * It clear `down.valid` and make the transaction driver forget its current state.
    */
   def throwWhen(cond : Bool, usingReady : Boolean = false)    (implicit loc: Location) : Unit = {
@@ -104,17 +104,37 @@ trait CtrlApi {
   /** Same as [[ignoreReadyWhen()]] but for use in `when` block */
   def ignoreReadyNow()(implicit loc: Location): Unit = ignoreReadyWhen(ConditionalContext.isTrue)
 
-  def forkStream[T <: Data](forceSpawn : Option[Bool] = Option.empty[Bool]): Stream[NoData] = {
+  /**
+   * Fork a stream from the current transaction.
+   * The transaction is blocked if the stream is enabled but not fired.
+   *
+   * @param forceSpawn Allow the caller reset the send state
+   * @param enabled Additional condition to allow the pipeline to enable/disable the forked stream
+   */
+  def forkStream[T <: Data](forceSpawn : Option[Bool] = Option.empty[Bool], enabled : Bool = True): Stream[NoData] = {
     val ret = Stream(NoData())
     val fired = RegInit(False) setCompositeName(ret, "fired")
     val firedComb = CombInit(fired)
-    ret.valid := isValid && !firedComb
-    haltWhen(!firedComb && !ret.ready)
+    ret.valid := isValid && !firedComb && enabled
+    haltWhen(!firedComb && !ret.ready && enabled)
     if (forceSpawn.nonEmpty) when(forceSpawn.get) {
       fired := False
       firedComb := False
     }
     fired setWhen (ret.fire) clearWhen (up.isMoving)
+    ret
+  }
+
+  /**
+   * Fork a flow from the current transaction.
+   *
+   * @param enabled Additional condition to allow the pipeline to enable/disable the forked flow
+   */
+  def forkFlow(enabled : Bool = True): Flow[NoData] = {
+    val ret = Flow(NoData())
+    val fired = RegInit(False) setCompositeName(ret, "fired")
+    ret.valid := isValid && !fired && enabled
+    fired setWhen(ret.fire) clearWhen(up.isMoving)
     ret
   }
 
@@ -128,11 +148,11 @@ trait CtrlApi {
 }
 
 /** A kind of special [[Link]] that connects two nodes with optional flow control / bypass logic.
-  * 
+  *
   * Its API should be flexible enough to implement a CPU stage with it.
-  * 
+  *
   * It as an [[up]] and a [[down]] node.
-  * 
+  *
   * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/Pipeline/introduction.html#ctrllink CtrlLink documentation]]
   */
 class CtrlLink(override val up : Node, override val down : Node) extends Link with CtrlApi {
