@@ -38,10 +38,11 @@ class Apb3Bridge(p : NodeParameters, c : Apb3BridgeConfig) extends Component{
   val buffered = io.up.a.halfPipe() //Required as we don't want to start io.up.d before consuming io.up.a (GET)
   val isGet = buffered.opcode === Opcode.A.GET
   val counter = Reg(io.up.p.beat) init(0)
-  val forked = buffered.forkSerial(!isGet || counter === buffered.sizeToBeatMinusOne())
+  val isLast = counter === buffered.sizeToBeatMinusOne()
+  val forked = buffered.forkSerial(!isGet || isLast)
   when(forked.fire) {
     counter := (counter + 1).resized
-    when(buffered.fire) {
+    when(isLast) {
       counter := 0
     }
   }
