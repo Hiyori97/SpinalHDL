@@ -9,8 +9,8 @@ import scala.collection.Seq
 
 object CtrlLink {
   def apply(up : Node, down : Node) = new CtrlLink(up, down)
-  def apply() = {
-    val c = new CtrlLink(new Node(), new Node())
+  def apply(defaultKey: Any = null) = {
+    val c = new CtrlLink(new Node(defaultKey), new Node(defaultKey))
     c.up.setCompositeName(c, "up")
     c.down.setCompositeName(c, "down")
     c
@@ -22,7 +22,15 @@ trait CtrlApi {
   private val _c = getCtrl
   import _c._
 
+  @deprecated("Use the defaultKey of node up and down instead, or override upDefaultKey/downDefaultKey instead.", "1.15.0")
   def defaultKey : Any = null
+
+  @deprecated("The gate is only used for passing defaultKey to up/down node, override upDefaultKey/downDefaultKey instead.", "1.15.0")
+  def useSingleDefaultKey: Boolean = true
+
+  def upDefaultKey: Any = if (useSingleDefaultKey) defaultKey else up.defaultKey
+
+  def downDefaultKey: Any = if (useSingleDefaultKey) defaultKey else down.defaultKey
 
   def up : NodeApi = _c.up
   def down : NodeApi = _c.down
@@ -31,7 +39,7 @@ trait CtrlApi {
   def isReady = down.isReady
 
   /** Same as `Link.down(Payload)` */
-  def apply[T <: Data](that: Payload[T]): T = down(that, defaultKey)
+  def apply[T <: Data](that: Payload[T]): T = down(that, downDefaultKey)
 
   /** Same as `Link.down(Payload, subKey)` */
   def apply[T <: Data](that: Payload[T], subKey: Any): T = down(that, subKey)
@@ -44,7 +52,7 @@ trait CtrlApi {
    *
    * This can be used to fix data hazard in CPU pipelines for instance.
    */
-  def bypass[T <: Data](that: Payload[T]): T =  bypass(that, defaultKey)
+  def bypass[T <: Data](that: Payload[T]): T =  bypass(that, upDefaultKey)
 
   /** Allows to conditionally override a ([[Payload]], subKey) value between `link.up` -> `link.down`.
    *
@@ -232,12 +240,42 @@ class CtrlLink(override val up : Node, override val down : Node) extends Link wi
     }
   }
 
-  class Area(override val defaultKey : Any = null)  extends spinal.core.Area with CtrlApi {
+  class Area private (
+    _upDefaultKey: Any,
+    _downDefaultKey: Any,
+    _useSingleDefaultKey: Boolean,
+    _defaultKey: Any,
+  ) extends spinal.core.Area with CtrlApi {
+    def this(_upDefaultKey : Any, _downDefaultKey: Any) = this(_upDefaultKey, _downDefaultKey, false, null)
+
+    @deprecated("Use constructor this(_upDefaultKey, _downDefaultKey) instead", "1.15.0")
+    def this(_defaultKey : Any) = this(_defaultKey, _defaultKey, true, _defaultKey)
+
+    def this() = this(CtrlLink.this.upDefaultKey, CtrlLink.this.downDefaultKey, false, null)
+
     override def getCtrl: CtrlLink = CtrlLink.this
+
+    @deprecated("Use upDefaultKey/downDefaultKey instead.", "1.15.0")
+    override def defaultKey: Any = _defaultKey
+
+    @deprecated("Use upDefaultKey/downDefaultKey instead.", "1.15.0")
+    override def useSingleDefaultKey: Boolean = _useSingleDefaultKey
+
+    override def upDefaultKey: Any = if (useSingleDefaultKey) defaultKey else _upDefaultKey
+
+    override def downDefaultKey: Any = if (useSingleDefaultKey) defaultKey else _downDefaultKey
   }
 }
 
 
 class CtrlLinkMirror(from : CtrlLink) extends spinal.core.Area with CtrlApi {
   override def getCtrl: CtrlLink = from
+
+  @deprecated("Use upDefaultKey/downDefaultKey instead.", "1.15.0")
+  override def defaultKey: Any = from.defaultKey
+  @deprecated("Use upDefaultKey/downDefaultKey instead.", "1.15.0")
+  override def useSingleDefaultKey: Boolean = from.useSingleDefaultKey
+
+  override def upDefaultKey: Any = from.upDefaultKey
+  override def downDefaultKey: Any = from.downDefaultKey
 }
