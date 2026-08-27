@@ -13,7 +13,7 @@ class SpinalSimStreamFragmentArbiterTester extends SpinalSimFunSuite {
           val inputs = Vec(slave(Stream(Fragment(UInt(10 bits)))), 2)
           val output = master(Stream(Fragment(UInt(10 bits))))
 
-          output << StreamFragmentArbiter(UInt(10 bits))(inputs)
+          output << StreamFragmentArbiter(UInt(10 bits))(inputs.toList)
         }
       }
       .doSimUntilVoid { dut =>
